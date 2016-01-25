@@ -134,7 +134,7 @@ def clean_str_sst(string):
 if __name__=="__main__":    
     # w2v_file = sys.argv[1]     
     gensim_model_fname = sys.argv[1]
-    data_folder = ["rt-polarity.pos","rt-polarity.neg"]    
+    data_folder = ["ntcirj.pos.wakati","ntcirj.neg.wakati"]    
     print "loading data...",        
     revs, vocab = build_data_cv(data_folder, cv=10, clean_string=False)
     max_l = np.max(pd.DataFrame(revs)["num_words"])
