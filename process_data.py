@@ -3,6 +3,7 @@ import cPickle
 from collections import defaultdict
 import sys, re
 import pandas as pd
+import gensim
 
 def build_data_cv(data_folder, cv=10, clean_string=True):
     """
@@ -61,28 +62,36 @@ def get_W(word_vecs, k=300):
         i += 1
     return W, word_idx_map
 
-def load_bin_vec(fname, vocab):
+def load_bin_vec(gensim_model_fname, vocab):
     """
     Loads 300x1 word vecs from Google (Mikolov) word2vec
     """
+    # word_vecs = {}
+    # with open(fname, "rb") as f:
+    #     header = f.readline()
+    #     vocab_size, layer1_size = map(int, header.split())
+    #     binary_len = np.dtype('float32').itemsize * layer1_size
+    #     for line in xrange(vocab_size):
+    #         word = []
+    #         while True:
+    #             ch = f.read(1)
+    #             if ch == ' ':
+    #                 word = ''.join(word)
+    #                 break
+    #             if ch != '\n':
+    #                 word.append(ch)   
+    #         if word in vocab:
+    #            word_vecs[word] = np.fromstring(f.read(binary_len), dtype='float32')  
+    #         else:
+    #             f.read(binary_len)
     word_vecs = {}
-    with open(fname, "rb") as f:
-        header = f.readline()
-        vocab_size, layer1_size = map(int, header.split())
-        binary_len = np.dtype('float32').itemsize * layer1_size
-        for line in xrange(vocab_size):
-            word = []
-            while True:
-                ch = f.read(1)
-                if ch == ' ':
-                    word = ''.join(word)
-                    break
-                if ch != '\n':
-                    word.append(ch)   
-            if word in vocab:
-               word_vecs[word] = np.fromstring(f.read(binary_len), dtype='float32')  
-            else:
-                f.read(binary_len)
+    model = gensim.models.word2vec.Word2Vec.load(gensim_model_fname)
+    for word in vocab.keys():
+        if word not in word_vecs:
+              try:
+                  word_vecs[word] = model[word.decode('utf-8')]
+              except KeyError:
+                  word_vecs[word] = 0.5 * np.random.randn(200)
     return word_vecs
 
 def add_unknown_words(word_vecs, vocab, min_df=1, k=300):
@@ -123,24 +132,25 @@ def clean_str_sst(string):
     return string.strip().lower()
 
 if __name__=="__main__":    
-    w2v_file = sys.argv[1]     
+    # w2v_file = sys.argv[1]     
+    gensim_model_fname = sys.argv[1]
     data_folder = ["rt-polarity.pos","rt-polarity.neg"]    
     print "loading data...",        
-    revs, vocab = build_data_cv(data_folder, cv=10, clean_string=True)
+    revs, vocab = build_data_cv(data_folder, cv=10, clean_string=False)
     max_l = np.max(pd.DataFrame(revs)["num_words"])
     print "data loaded!"
     print "number of sentences: " + str(len(revs))
     print "vocab size: " + str(len(vocab))
     print "max sentence length: " + str(max_l)
     print "loading word2vec vectors...",
-    w2v = load_bin_vec(w2v_file, vocab)
+    w2v = load_bin_vec(gensim_model_fname, vocab)
     print "word2vec loaded!"
     print "num words already in word2vec: " + str(len(w2v))
-    add_unknown_words(w2v, vocab)
-    W, word_idx_map = get_W(w2v)
+    add_unknown_words(w2v, vocab, k=200)
+    W, word_idx_map = get_W(w2v, k=200)
     rand_vecs = {}
-    add_unknown_words(rand_vecs, vocab)
-    W2, _ = get_W(rand_vecs)
+    add_unknown_words(rand_vecs, vocab, k=200)
+    W2, _ = get_W(rand_vecs, k=200)
     cPickle.dump([revs, W, W2, word_idx_map, vocab], open("mr.p", "wb"))
     print "dataset created!"
     
